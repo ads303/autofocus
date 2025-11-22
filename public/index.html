@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Autofocus – A Camera Settings Assistant</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Modern font: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #05060a;
+      --fg: #f5f5f5;
+      --accent: #f97316;
+      --accent-soft: rgba(249, 115, 22, 0.25);
+      --ring-dark: #151820;
+      --ring-mid: #222632;
+      --ring-light: #2e3440;
+      --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont,
+        "SF Pro Text", "Segoe UI", sans-serif;
+    }
+    
+    /* Light theme overrides */
+:root.light-theme {
+  --bg: #f3f4f6;
+  --fg: #111827;
+  --accent: #ea580c;
+  --accent-soft: rgba(234, 88, 12, 0.25);
+  --ring-dark: #d4d4d8;
+  --ring-mid: #e5e7eb;
+  --ring-light: #f4f4f5;
+}
+
+    /* Adjust body + app backgrounds to respect vars */
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font-sans);
+      background: radial-gradient(circle at top, #111827, #000000 55%);
+      color: var(--fg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    
+    /* Lighter background when in light theme */
+    :root.light-theme body {
+      background: radial-gradient(circle at top, #e5e7eb, #ffffff 55%);
+    }
+    
+    .app {
+      background: rgba(9, 10, 15, 0.92);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.75);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+    }
+    
+    /* Light mode card background */
+    :root.light-theme .app {
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 22px 60px rgba(148, 163, 184, 0.4);
+      border-color: rgba(148, 163, 184, 0.5);
+    }
+    
+    /* Inputs in light mode */
+    :root.light-theme textarea,
+    :root.light-theme input {
+      background: rgba(249, 250, 251, 0.9);
+      border-color: #e5e7eb;
+      color: #111827;
+    }
+    
+    :root.light-theme textarea:focus,
+    :root.light-theme input:focus {
+      background: #ffffff;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent-soft);
+    }
+    
+    /* Lens background in light mode */
+    :root.light-theme .lens {
+      background: radial-gradient(circle at 30% 20%, #e5e7eb 0, #9ca3af 55%, #6b7280 80%);
+      box-shadow: 0 0 0 1px #e5e7eb, 0 18px 40px rgba(148, 163, 184, 0.7);
+    }
+    
+    /* Rings in light mode */
+    :root.light-theme .ring--scene {
+      background: conic-gradient(
+        from 0deg,
+        rgba(148, 163, 184, 0.5) 0deg,
+        rgba(148, 163, 184, 0.5) 60deg,
+        rgba(148, 163, 184, 0.1) 60deg,
+        rgba(148, 163, 184, 0.1) 120deg,
+        rgba(148, 163, 184, 0.55) 120deg,
+        rgba(148, 163, 184, 0.55) 180deg,
+        rgba(148, 163, 184, 0.1) 180deg,
+        rgba(148, 163, 184, 0.1) 240deg,
+        rgba(148, 163, 184, 0.6) 240deg,
+        rgba(148, 163, 184, 0.6) 300deg,
+        rgba(148, 163, 184, 0.1) 300deg,
+        rgba(148, 163, 184, 0.1) 360deg
+      );
+    }
+    
+    :root.light-theme .ring--exposure {
+      background: radial-gradient(circle, #f9fafb 0, #e5e7eb 45%, #cbd5f5 100%);
+    }
+    
+    :root.light-theme .ring--inner {
+      background: radial-gradient(circle at 20% 20%, #e5e7eb 0, #cbd5f5 70%);
+    }
+    
+    /* Center glass in light mode */
+    :root.light-theme .lens-center {
+      background: radial-gradient(circle at 30% 20%, #4fc1f4 0, #1d4ed8 40%, #020617 100%);
+    }
+    
+    /* Circular text color in light mode */
+    :root.light-theme .ring-text {
+      fill: #374151;
+    }
+    
+    /* Notes / status colors tuned for light */
+    :root.light-theme .subtitle,
+    :root.light-theme .status-line,
+    :root.light-theme .notes-panel,
+    :root.light-theme .mini-note,
+    :root.light-theme .variants {
+      color: #4b5563;
+    }
+
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font-sans);
+      background: radial-gradient(circle at top, #111827, #000000 55%);
+      color: var(--fg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+      .inline-icon {
+        height: 1.5em;
+        width: auto;
+        vertical-align: -0.22em;
+        display: inline-block;
+      }
+      /* ----- PHONE MODE UI ----- */
+
+      .phone-card {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: auto;                 /* <-- allow interaction */
+        opacity: 0;
+        transform: scale(0.8) translateY(8px);
+        transition: opacity 0.4s ease, transform 0.4s ease;
+      }
+
+      
+      /* outer bezel */
+      .phone-bezel {
+        width: 64%;
+        max-width: 220px;
+        aspect-ratio: 9 / 19.5;
+        border-radius: 26px;
+        background: radial-gradient(circle at 20% 0%, #1f2937, #020617 70%);
+        padding: 8px;
+        box-shadow:
+          0 18px 40px rgba(0, 0, 0, 0.9),
+          0 0 0 1px rgba(15, 23, 42, 0.6);
+        position: relative;
+      }
+      
+      /* tiny notch at top */
+      .phone-notch {
+        position: absolute;
+        top: 6px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 36%;
+        height: 6px;
+        border-radius: 999px;
+        background: #020617;
+      }
+      
+      /* inner screen */
+      .phone-screen {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        border-radius: 20px;
+        padding: 24px 16px 18px;      /* a bit more bottom padding */
+        background: radial-gradient(circle at 10% 0%, #111827, #020617 80%);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        overflow-y: auto;              /* <-- allow vertical scroll */
+        overflow-x: hidden;            /* no horizontal scroll */
+        box-shadow: inset 0 0 0 1px rgba(17, 24, 39, 0.8);
+      }
+
+      
+      .phone-title {
+        font-size: 0.7rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: #9ca3af;
+        margin-bottom: 4px;
+      }
+      
+      .phone-mainline {
+        font-size: 0.70rem;
+        font-weight: 600;
+        color: #e5e7eb;
+        line-height: 1.35;
+        margin-bottom: 6px;
+      }
+      
+      .phone-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 6px;
+        font-size: 0.68rem;
+      }
+      
+      .phone-label {
+        color: #9ca3af;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      
+      .phone-value {
+        color: #e5e7eb;
+        text-align: right;
+      }
+      
+      .phone-note {
+        margin-top: 4px;
+        font-size: 0.68rem;
+        color: #9ca3af;
+      }
+      
+      /* Lens → phone transition */
+      .lens-wrapper {
+        position: relative;
+      }
+      
+      .lens-wrapper.phone-mode .lens {
+        transform: scale(0.85);
+        opacity: 0.35;
+        filter: blur(1px);
+        transition: transform 0.4s ease, opacity 0.4s ease, filter 0.4s ease;
+      }
+      
+      .lens-wrapper .lens {
+        transition: transform 0.4s ease, opacity 0.4s ease, filter 0.4s ease;
+      }
+      
+      .lens-wrapper.phone-mode .phone-card {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+      
+      /* hide phone card in camera mode */
+      .lens-wrapper:not(.phone-mode) .phone-card {
+        opacity: 0;
+        transform: scale(0.8) translateY(8px);
+      }
+      
+            /* ===== LIGHT MODE OVERRIDES ===== */
+      
+      /* if you're adding the class to <body> */
+      .light-theme .phone-bezel {
+        background: radial-gradient(circle at 20% 0%, #e5e7eb, #cbd5f5 70%);
+        box-shadow:
+          0 18px 40px rgba(15, 23, 42, 0.25),
+          0 0 0 1px rgba(148, 163, 184, 0.7);
+      }
+      
+      .light-theme .phone-screen {
+        background: radial-gradient(circle at 10% 0%, #f9fafb, #e5e7eb 80%);
+        box-shadow: inset 0 0 0 1px rgba(209, 213, 219, 0.9);
+      }
+      
+      .light-theme .phone-notch {
+        background: #e5e7eb;
+      }
+      
+      .light-theme .phone-title {
+        color: #6b7280;
+      }
+      
+      .light-theme .phone-mainline {
+        color: #111827;
+      }
+      
+      .light-theme .phone-label {
+        color: #6b7280;
+      }
+      
+      .light-theme .phone-value {
+        color: #111827;
+      }
+      
+      .light-theme .phone-note {
+        color: #4b5563;
+      }
+
+      /* Explanation label / text */
+      .light-theme .notes-panel {
+        color: #111827;
+      }
+      
+      .light-theme .notes-panel .label {
+        color: #6b7280;
+      }
+      
+      /* Tip line */
+      .light-theme .mini-note {
+        color: #6b7280;
+      }
+      
+      /* Brighter / More bokeh block + chips */
+      .light-theme .variants {
+        border-top-color: rgba(209, 213, 219, 0.9);
+        color: #111827;
+      }
+      
+      .light-theme .variants code {
+        background: #e5e7eb;
+        border-color: #d1d5db;
+        color: #111827;
+      }
+
+
+      .secondary-btn {
+        background: transparent;
+        color: #e5e7eb;
+        box-shadow: none;
+        border: 1px solid rgba(148, 163, 184, 0.5);
+        padding-inline: 14px;
+      }
+      
+      .secondary-btn:hover {
+        background: rgba(15, 23, 42, 0.85);
+        box-shadow: none;
+      }
+      
+      /* Light mode variant */
+      .light-theme .secondary-btn {
+        color: #111827;
+        border-color: #d1d5db;
+        background: rgba(255, 255, 255, 0.9);
+      }
+      
+      .light-theme .secondary-btn:hover {
+        background: #ffffff;
+      }
+    
+
+    .app {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+      gap: 32px;
+      width: 100%;
+      max-width: 1120px;
+      padding: 24px 28px;
+      border-radius: 28px;
+      background: rgba(9, 10, 15, 0.92);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.75);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+    }
+
+    @media (max-width: 840px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .left {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      letter-spacing: 0.03em;
+      margin: 0 0 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    h1 span.logo-dot {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 14px var(--accent-soft);
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: #9ca3af;
+      margin-bottom: 8px;
+    }
+
+    label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #9ca3af;
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    textarea,
+    input {
+      width: 100%;
+      border-radius: 14px;
+      border: 1px solid #1f2933;
+      background: rgba(15, 23, 42, 0.8);
+      color: var(--fg);
+      padding: 10px 12px;
+      font-size: 0.9rem;
+      resize: vertical;
+      min-height: 56px;
+      outline: none;
+      transition: border 0.15s ease, box-shadow 0.15s ease,
+        background 0.15s ease;
+    }
+
+    textarea:focus,
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent-soft);
+      background: rgba(15, 23, 42, 0.95);
+    }
+
+    .field-group {
+      margin-bottom: 8px;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+    }
+    
+        .theme-toggle-btn {
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      background: rgba(15, 23, 42, 0.9);
+      color: #e5e7eb;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .theme-toggle-btn:hover {
+      background: rgba(31, 41, 55, 1);
+    }
+    
+    /* Light mode version of the button */
+    :root.light-theme .theme-toggle-btn {
+      background: #ffffff;
+      color: #111827;
+      border-color: #e5e7eb;
+    }
+    
+    .inline-icon {
+      height: 1em;
+      width: auto;
+      vertical-align: -0.15em;
+      display: inline-block;
+    }
+
+
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 10px 18px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      background: var(--accent);
+      color: #111827;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 12px 30px rgba(249, 115, 22, 0.35);
+      transition: transform 0.08s ease, box-shadow 0.12s ease,
+        background 0.12s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 16px 40px rgba(249, 115, 22, 0.4);
+      background: #fb923c;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: default;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .status-line {
+      font-size: 0.8rem;
+      color: #9ca3af;
+      margin-top: 6px;
+      min-height: 1.2em;
+    }
+
+    .status-line strong {
+      color: var(--accent);
+    }
+
+    .notes-panel {
+      margin-top: 6px;
+      font-size: 0.8rem;
+      color: #d1d5db;
+      line-height: 1.4;
+      max-width: 460px;
+    }
+
+    .notes-panel span.label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #9ca3af;
+      margin-right: 6px;
+    }
+
+    .right {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .lens-wrapper {
+      width: 320px;
+      height: 320px;
+      position: relative;
+    }
+
+    @media (max-width: 480px) {
+      .lens-wrapper {
+        width: 260px;
+        height: 260px;
+      }
+    }
+
+    .lens {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at 30% 20%, #111827 0, #020617 70%);
+      box-shadow: 0 0 0 1px #111827, 0 18px 40px rgba(0, 0, 0, 0.9);
+      overflow: hidden;
+    }
+
+    .ring {
+      position: absolute;
+      border-radius: 50%;
+      border-style: solid;
+      border-color: transparent;
+      transition: transform 0.8s cubic-bezier(0.19, 1, 0.22, 1);
+      transform-origin: center center;
+    }
+
+    .ring--scene {
+      width: 86%;
+      height: 86%;
+      border-width: 18px;
+      border-color: var(--ring-dark);
+      background: conic-gradient(
+        from 0deg,
+        rgba(148, 163, 184, 0.15) 0deg,
+        rgba(148, 163, 184, 0.15) 60deg,
+        rgba(148, 163, 184, 0.02) 60deg,
+        rgba(148, 163, 184, 0.02) 120deg,
+        rgba(148, 163, 184, 0.18) 120deg,
+        rgba(148, 163, 184, 0.18) 180deg,
+        rgba(148, 163, 184, 0.02) 180deg,
+        rgba(148, 163, 184, 0.02) 240deg,
+        rgba(148, 163, 184, 0.2) 240deg,
+        rgba(148, 163, 184, 0.2) 300deg,
+        rgba(148, 163, 184, 0.02) 300deg,
+        rgba(148, 163, 184, 0.02) 360deg
+      );
+      opacity: 0.9;
+    }
+
+    .ring--exposure {
+      width: 64%;
+      height: 64%;
+      border-width: 14px;
+      border-color: var(--ring-mid);
+      background: radial-gradient(circle, #020617 0, #020617 45%, #111827 100%);
+      box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.9);
+    }
+
+    .ring--inner {
+      width: 44%;
+      height: 44%;
+      border-width: 10px;
+      border-color: var(--ring-light);
+      background: radial-gradient(circle at 20% 20%, #0f172a 0, #020617 70%);
+      box-shadow: inset 0 0 16px rgba(15, 23, 42, 0.9);
+    }
+
+    /* SVG circular text for SCENE • EXPOSURE • FOCUS */
+    .lens-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .ring-text {
+      font-size: 8px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      fill: #9ca3af;
+    }
+
+    .lens-center {
+      position: absolute;
+      width: 34%;
+      height: 34%;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 20%, #38bdf8 0, #0f172a 45%, #020617 100%);
+      box-shadow: 0 0 16px rgba(15, 23, 42, 0.9), inset 0 0 8px rgba(15, 23, 42, 0.8);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 6px;
+      text-align: center;
+      gap: 2px;
+    }
+
+    .center-line {
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #e5e7eb;
+      white-space: nowrap;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .center-line.iso {
+      letter-spacing: 0.18em;
+    }
+
+    .pulse-ring {
+      position: absolute;
+      width: 38%;
+      height: 38%;
+      border-radius: 50%;
+      border: 1px solid var(--accent-soft);
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(0.92);
+    }
+
+    .pulse-ring.is-active {
+      animation: pulse 1.2s ease-out forwards;
+    }
+
+    @keyframes pulse {
+      0% {
+        opacity: 0.9;
+        transform: scale(0.92);
+      }
+      100% {
+        opacity: 0;
+        transform: scale(1.2);
+      }
+    }
+
+    /* flashing red-orange indicator */
+    .focus-led {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #fed7aa 0, #fb923c 50%, #7c2d12 100%);
+      border: 1px solid rgba(148, 27, 0, 0.9);
+      bottom: 26px;
+      right: 42px;
+      box-shadow: 0 0 0 rgba(248, 113, 113, 0);
+      opacity: 0.4;
+      transform: translateZ(0);
+    }
+
+    .focus-led.is-loading {
+      animation: focusBlink 1s ease-in-out infinite;
+      opacity: 1;
+    }
+
+    @keyframes focusBlink {
+      0%, 100% {
+        box-shadow: 0 0 0 rgba(248, 113, 113, 0);
+      }
+      40% {
+        box-shadow: 0 0 18px rgba(248, 113, 113, 0.9);
+      }
+    }
+
+    .mini-note {
+      margin-top: 6px;
+      font-size: 0.72rem;
+      color: #6b7280;
+      max-width: 420px;
+    }
+
+    .variants {
+      margin-top: 10px;
+      font-size: 0.78rem;
+      color: #9ca3af;
+      border-top: 1px solid rgba(31, 41, 55, 0.9);
+      padding-top: 8px;
+    }
+
+    .variants code {
+      font-family: ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono",
+        "Courier New", monospace;
+      font-size: 0.76rem;
+      background: rgba(15, 23, 42, 0.9);
+      border-radius: 999px;
+      padding: 2px 8px;
+      margin-right: 6px;
+      border: 1px solid rgba(31, 41, 55, 0.9);
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="left">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <h1 style="margin:0;">
+          <span class="logo-dot"></span>
+          Autofocus
+        </h1>
+        <button id="theme-toggle" class="theme-toggle-btn" type="button">
+          Light
+        </button>
+      </div>
+      
+      <div class="subtitle">
+        Describe (however detailed you want) your intended shot, camera, and constraints. Autofocus will provide recommended settings for your situation. Your camera's automatic
+        <img src="auto.png" class="inline-icon" alt="AUTO"> 
+        mode will often give you a decent shot, but Autofocus attempts to take into account your environment and photography situation. It tailors settings based on subject behavior, surrounding lighting characteristics, camera and lens type, and limitations. Save your settings if you like them, and come back to them again and again. Autofocus is not truth serum, but it is a useful guide to help you achieve a high level starting point for whatever situation you may be in with your camera. 
+      </div>
+
+
+
+      <div class="field-group">
+        <label for="scenario">Scenario</label>
+        <textarea id="scenario" placeholder="e.g., Indoor birthday party, kids running around, handheld, I want sharp faces and some background blur."></textarea>
+      </div>
+
+      <div class="row">
+        <div class="field-group" style="flex: 1;">
+          <label for="camera">Camera or Smartphone</label>
+          <input id="camera" placeholder="e.g., Sony a7III/iPhone 17" />
+        </div>
+        <div class="field-group" style="flex: 1;">
+          <label for="lens">Lens</label>
+          <input id="lens" placeholder="e.g., 35mm f/1.4" />
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label for="constraints">Constraints (optional)</label>
+        <input id="constraints" placeholder="e.g., no tripod, low noise, glaring sunlight, subject moving fast" />
+      </div>
+      
+      <div>
+        <button id="go-btn">
+          <span>Get settings</span>
+        </button>
+      
+        <!-- New secondary button -->
+        <button id="text-btn" class="secondary-btn" type="button" style="margin-left:8px;">
+          Text me these settings
+        </button>
+      
+        <div class="status-line" id="status-line"></div>
+      </div>
+
+
+      <div class="notes-panel" id="notes-panel">
+        <span class="label">Explanation</span>
+        <span id="notes-text">Waiting for your scene...</span>
+      </div>
+
+      <div class="mini-note">
+        Tip: you can be as high- or low-level as you like: "Astro Milky Way on APS-C", "Concert from back row", "iPhone night street portrait", etc.
+      </div>
+
+      <div class="variants" id="variants"></div>
+    </div>
+
+    <div class="right">
+      <div class="lens-wrapper" id="lens-wrapper">
+        <div class="lens" id="lens">
+          <div class="ring ring--scene" id="ring-scene"></div>
+          <div class="ring ring--exposure" id="ring-exposure"></div>
+          <div class="ring ring--inner" id="ring-inner"></div>
+
+          <!-- circular text: full circle with generous margins, positioned via startOffset -->
+          <svg class="lens-svg" viewBox="0 0 260 260" preserveAspectRatio="xMidYMid meet"
+               xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <!-- full circle, center (130,130), radius 90 -->
+              <path id="text-circle" d="
+                M 130,40
+                A 90,90 0 1,1 129.9,40
+              " />
+            </defs>
+          
+            <text class="ring-text" text-anchor="middle">
+              <!-- 15% puts the start a bit left of top center; tweak 10–25% to taste -->
+              <textPath href="#text-circle" startOffset="25%">
+                AUTOFOCUS • ads303.github.io
+              </textPath>
+            </text>
+          </svg>
+
+
+
+
+      <!-- center settings (camera mode) -->
+      <div class="lens-center" id="lens-center">
+        <div class="center-line" id="center-aperture">F/2.8</div>
+        <div class="center-line" id="center-shutter">1/125</div>
+        <div class="center-line iso" id="center-iso">ISO 400</div>
+      </div>
+
+      <div class="pulse-ring" id="pulse-ring"></div>
+    </div>
+
+    <!-- red/orange focus LED -->
+    <div class="focus-led" id="focus-led"></div>
+
+    <!-- PHONE MODE CARD -->
+    <div class="phone-card" id="phone-card">
+      <div class="phone-bezel">
+        <div class="phone-notch"></div>
+        <div class="phone-screen">
+          <div class="phone-title">Phone setup</div>
+          <div class="phone-mainline" id="phone-mainline">
+            <!-- e.g. "Night mode • Main wide lens • 3s timer" -->
+          </div>
+
+          <div class="phone-row">
+            <span class="phone-label">Mode</span>
+            <span class="phone-value" id="phone-mode"></span>
+          </div>
+          <div class="phone-row">
+            <span class="phone-label">Lens</span>
+            <span class="phone-value" id="phone-lens"></span>
+          </div>
+          <div class="phone-row">
+            <span class="phone-label">Stability</span>
+            <span class="phone-value" id="phone-stability"></span>
+          </div>
+          <div class="phone-row">
+            <span class="phone-label">Exposure</span>
+            <span class="phone-value" id="phone-exposure"></span>
+          </div>
+          <div class="phone-row">
+            <span class="phone-label">Focus</span>
+            <span class="phone-value" id="phone-focus"></span>
+          </div>
+
+          <div class="phone-note" id="phone-notes"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+  <script>
+    const API_URL = "/api/camera-settings";
+
+    const goBtn = document.getElementById("go-btn");
+    const statusLine = document.getElementById("status-line");
+
+    const centerAperture = document.getElementById("center-aperture");
+    const centerShutter = document.getElementById("center-shutter");
+    const centerIso = document.getElementById("center-iso");
+    const variantsEl = document.getElementById("variants");
+    const notesText = document.getElementById("notes-text");
+
+    const ringScene = document.getElementById("ring-scene");
+    const ringExposure = document.getElementById("ring-exposure");
+    const ringInner = document.getElementById("ring-inner");
+    const pulseRing = document.getElementById("pulse-ring");
+    const focusLed = document.getElementById("focus-led");
+    const lensWrapper = document.getElementById("lens-wrapper");
+    const lensCenter = document.getElementById("lens-center");
+    
+    // phone elements
+    const phoneCard = document.getElementById("phone-card");
+    const phoneMainline = document.getElementById("phone-mainline");
+    const phoneModeEl = document.getElementById("phone-mode");
+    const phoneLensEl = document.getElementById("phone-lens");
+    const phoneStabilityEl = document.getElementById("phone-stability");
+    const phoneExposureEl = document.getElementById("phone-exposure");
+    const phoneFocusEl = document.getElementById("phone-focus");
+    const phoneNotesEl = document.getElementById("phone-notes");
+    const textBtn = document.getElementById("text-btn");
+
+    // will hold whatever the last response was
+    let lastSettings = null;
+
+
+    
+    let phoneAnimationStep = 0;
+
+    function isPhoneSettings(settings) {
+      // If it has "mode" and no "aperture", we treat it as smartphone schema
+      return !!settings && !!settings.mode && !settings.aperture;
+    }
+
+
+    const apertureScale = [
+      "f/1.2", "f/1.4", "f/1.8", "f/2.0", "f/2.8", "f/4.0",
+      "f/5.6", "f/8", "f/11", "f/16"
+    ];
+
+    const shutterScale = [
+      "1/8000", "1/4000", "1/2000", "1/1000", "1/500", "1/250",
+      "1/125", "1/60", "1/30", "1/15", "1/8", "1/4", "0.5s", "1s", "2s", "4s", "8s", "15s", "30s"
+    ];
+
+    const isoScale = [50, 100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600];
+
+    function valueToAngle(value, scale, defaultAngle = 0) {
+      const idx = scale.findIndex((v) => String(v).toLowerCase() === String(value).toLowerCase());
+      if (idx === -1) return defaultAngle;
+      const step = 360 / scale.length;
+      return idx * step;
+    }
+
+    function animatePulse() {
+      pulseRing.classList.remove("is-active");
+      void pulseRing.offsetWidth;
+      pulseRing.classList.add("is-active");
+    }
+
+    function setLensLoading(loading) {
+      if (loading) {
+        statusLine.innerHTML = "<strong>Dialing in settings...</strong>";
+        goBtn.disabled = true;
+        ringScene.style.transition = "transform 1s linear";
+        ringScene.style.transform = "rotate(180deg)";
+        focusLed.classList.add("is-loading");
+      } else {
+        goBtn.disabled = false;
+        ringScene.style.transition = "transform 0.8s cubic-bezier(0.19,1,0.22,1)";
+        focusLed.classList.remove("is-loading");
+      }
+    }
+
+      function updateCameraUI(settings) {
+        const {
+          aperture,
+          shutter_speed,
+          iso,
+          notes,
+          white_balance,
+          focus_mode,
+          metering_mode,
+          drive_mode,
+          variant_brighter,
+          variant_more_bokeh,
+        } = settings;
+      
+        const apertureStr = aperture || "f/2.8";
+        const shutterStr = shutter_speed || "1/125";
+        const isoVal = iso || 400;
+      
+        const formattedAperture = apertureStr.toUpperCase().startsWith("F")
+          ? apertureStr.toUpperCase()
+          : `F/${apertureStr.replace(/f\//i, "").replace(/^f/i, "")}`;
+      
+        const formattedIso = String(isoVal).toUpperCase().startsWith("ISO")
+          ? String(isoVal).toUpperCase()
+          : `ISO ${isoVal}`;
+      
+        centerAperture.textContent = formattedAperture;
+        centerShutter.textContent = shutterStr;
+        centerIso.textContent = formattedIso;
+      
+        const fallbackNote = `WB: ${white_balance || "Daylight"} · AF: ${
+          focus_mode || "AF-S"
+        } · Metering: ${metering_mode || "Matrix"}`;
+      
+        notesText.textContent = notes || fallbackNote;
+      
+        // rotate rings same as before
+        const aAngle = valueToAngle(apertureStr, apertureScale, 140);
+        const sAngle = valueToAngle(shutterStr, shutterScale, 220);
+        const iAngle = valueToAngle(isoVal, isoScale, 40);
+      
+        ringExposure.style.transform = `rotate(${aAngle}deg)`;
+        ringInner.style.transform = `rotate(${sAngle}deg)`;
+        ringScene.style.transform = `rotate(${iAngle}deg)`;
+      
+        animatePulse();
+      
+        let variantsHtml = "";
+        if (variant_brighter) {
+          variantsHtml += `<div><code>Brighter</code>${variant_brighter.aperture || ""} • ${
+            variant_brighter.shutter_speed || ""
+          } • ISO ${variant_brighter.iso || ""}</div>`;
+        }
+        if (variant_more_bokeh) {
+          variantsHtml += `<div><code>More bokeh</code>${variant_more_bokeh.aperture || ""} • ${
+            variant_more_bokeh.shutter_speed || ""
+          } • ISO ${variant_more_bokeh.iso || ""}</div>`;
+        }
+        variantsEl.innerHTML = variantsHtml || "";
+      
+        lensWrapper.classList.remove("phone-mode");
+        lensCenter.style.display = "flex";
+      }
+      
+      function updateFromSettings(settings) {
+        const type = (settings.device_type || "").toUpperCase();
+      
+        // remember last settings for texting
+        lastSettings = settings;
+      
+        if (type === "SMARTPHONE") {
+          updatePhoneUI(settings);
+          statusLine.textContent =
+            "Phone setup updated. Use the suggested mode and gestures, then adjust by eye.";
+        } else {
+          updateCameraUI(settings);
+          statusLine.textContent =
+            "Settings updated. Always chimp your histogram and adjust to taste.";
+        }
+      }
+
+      function buildCameraText(settings) {
+        const {
+          aperture,
+          shutter_speed,
+          iso,
+          white_balance,
+          focus_mode,
+          metering_mode,
+          drive_mode,
+          notes,
+        } = settings;
+      
+        const lines = [
+          "Autofocus – Camera settings",
+          "",
+          `Aperture: ${aperture || "f/2.8"}`,
+          `Shutter: ${shutter_speed || "1/125"}`,
+          `ISO: ${iso || 400}`,
+          `White balance: ${white_balance || "Daylight"}`,
+          `Focus mode: ${focus_mode || "AF-S"}`,
+          `Metering: ${metering_mode || "Matrix"}`,
+          `Drive: ${drive_mode || "Single"}`,
+        ];
+      
+        if (notes) {
+          lines.push("", `Notes: ${notes}`);
+        }
+      
+        return lines.join("\n");
+      }
+      
+      function buildPhoneText(settings) {
+        const {
+          mode,
+          lens,
+          stability,
+          exposure_adjustment,
+          focus_action,
+          notes,
+        } = settings;
+      
+        const lines = [
+          "Autofocus – Phone setup",
+          "",
+          `Mode: ${mode || "Auto / Night mode"}`,
+          `Lens: ${lens || "Main wide lens"}`,
+          `Stability: ${stability || "Use 3s timer, brace phone"}`,
+          `Exposure: ${exposure_adjustment || "Adjust exposure slider slightly"}`,
+          `Focus: ${focus_action || "Tap to focus, hold to lock AE/AF"}`,
+        ];
+      
+        if (notes) {
+          lines.push("", `Notes: ${notes}`);
+        }
+      
+        return lines.join("\n");
+      }
+
+    function updatePhoneUI(settings) {
+      const {
+        mode,
+        lens,
+        stability,
+        exposure_adjustment,
+        focus_action,
+        notes,
+        variant_brighter,
+        variant_more_bokeh,
+      } = settings;
+    
+      // main hero line at top of phone
+      const parts = [];
+      if (mode) parts.push(mode);
+      if (lens) parts.push(lens);
+      if (stability) parts.push(stability);
+      phoneMainline.textContent = parts.join(" • ");
+    
+      phoneModeEl.textContent = mode || "Auto";
+      phoneLensEl.textContent = lens || "Main wide lens";
+      phoneStabilityEl.textContent = stability || "3s timer, brace phone";
+      phoneExposureEl.textContent =
+        exposure_adjustment || "Adjust exposure slider slightly";
+      phoneFocusEl.textContent =
+        focus_action || "Tap to focus, hold to lock AE/AF";
+      phoneNotesEl.textContent =
+        notes ||
+        "Use the main wide lens with HDR/Night mode and brace the phone for sharp shots.";
+    
+      // variants area under the form
+      let variantsHtml = "";
+      if (variant_brighter) {
+        variantsHtml += `<div><code>Brighter</code>${
+          variant_brighter.exposure_adjustment || ""
+        } ${variant_brighter.notes ? "• " + variant_brighter.notes : ""}</div>`;
+      }
+      if (variant_more_bokeh) {
+        variantsHtml += `<div><code>More separation</code>${
+          variant_more_bokeh.mode || ""
+        } ${variant_more_bokeh.notes ? "• " + variant_more_bokeh.notes : ""}</div>`;
+      }
+      variantsEl.innerHTML = variantsHtml || "";
+    
+      // visually switch to phone mode
+      lensWrapper.classList.add("phone-mode");
+      lensCenter.style.display = "none";
+    
+      animatePulse();
+    }
+
+
+
+    async function fetchSettings() {
+      const scenario = document.getElementById("scenario").value.trim();
+      const cameraModel = document.getElementById("camera").value.trim();
+      const lens = document.getElementById("lens").value.trim();
+      const constraints = document.getElementById("constraints").value.trim();
+
+      if (!scenario && !cameraModel && !lens) {
+        statusLine.textContent = "Give me at least a scenario or camera + lens.";
+        return;
+      }
+
+      setLensLoading(true);
+
+      try {
+        const res = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ scenario, cameraModel, lens, constraints }),
+        });
+
+        if (!res.ok) {
+          throw new Error("Server error");
+        }
+
+        const data = await res.json();
+        updateFromSettings(data);
+      } catch (err) {
+        console.error(err);
+        statusLine.textContent =
+          "Something went wrong. Check the server logs and your API key.";
+      } finally {
+        setLensLoading(false);
+      }
+    }
+
+    goBtn.addEventListener("click", () => {
+      fetchSettings();
+    });
+
+    document.getElementById("constraints").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        fetchSettings();
+      }
+    });
+    
+    // ---- Theme toggle ----
+const themeToggleBtn = document.getElementById("theme-toggle");
+const rootEl = document.documentElement;
+
+if (textBtn) {
+  textBtn.addEventListener("click", () => {
+    if (!lastSettings) {
+      statusLine.textContent = "Generate settings first, then you can text them.";
+      return;
+    }
+
+    const type = (lastSettings.device_type || "").toUpperCase();
+    const body =
+      type === "SMARTPHONE"
+        ? buildPhoneText(lastSettings)
+        : buildCameraText(lastSettings);
+
+    const encoded = encodeURIComponent(body);
+
+    // This opens the default SMS app on mobile with the text prefilled.
+    // The user chooses the recipient (themselves, etc.).
+    window.location.href = `sms:&body=${encoded}`;
+  });
+}
+
+
+function applyTheme(theme) {
+  if (theme === "light") {
+    rootEl.classList.add("light-theme");
+    if (themeToggleBtn) themeToggleBtn.textContent = "Dark";
+  } else {
+    rootEl.classList.remove("light-theme");
+    if (themeToggleBtn) themeToggleBtn.textContent = "Light";
+  }
+}
+
+// On first load: use saved theme or system preference
+(function initTheme() {
+  const saved = localStorage.getItem("Autofocus-theme");
+  if (saved === "light" || saved === "dark") {
+    applyTheme(saved);
+  } else {
+    const prefersLight = window.matchMedia &&
+      window.matchMedia("(prefers-color-scheme: light)").matches;
+    applyTheme(prefersLight ? "light" : "dark");
+  }
+})();
+
+if (themeToggleBtn) {
+  themeToggleBtn.addEventListener("click", () => {
+    const isLight = rootEl.classList.contains("light-theme");
+    const next = isLight ? "dark" : "light";
+    applyTheme(next);
+    localStorage.setItem("Autofocus-theme", next);
+  });
+}
+
+  </script>
+</body>
+</html>
